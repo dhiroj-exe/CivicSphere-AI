@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Send, MapPin, LogOut, Loader2, Globe } from "lucide-react";
+import { Send, MapPin, LogOut, Loader2, Globe, Mic, MicOff, Volume2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -48,7 +48,10 @@ const Chat = () => {
   const [location, setLocation] = useState<{ city: string; state: string; country: string } | null>(null);
   const [language, setLanguage] = useState("en");
   const [detectingLocation, setDetectingLocation] = useState(true);
+  const [isListening, setIsListening] = useState(false);
+  const [detectedLanguage, setDetectedLanguage] = useState("en");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -77,6 +80,38 @@ const Chat = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  useEffect(() => {
+    const globalWindow = typeof window !== 'undefined' ? (window as any) : undefined;
+    if (globalWindow && (globalWindow.webkitSpeechRecognition || globalWindow.SpeechRecognition)) {
+      const SpeechRecognition = globalWindow.SpeechRecognition || globalWindow.webkitSpeechRecognition;
+      recognitionRef.current = new (SpeechRecognition as any)();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = 'en-US'; // Default, will be updated based on detection
+
+      recognitionRef.current.onstart = () => {
+        setIsListening(true);
+      };
+
+      recognitionRef.current.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setInput(transcript);
+        // Auto-detect language from transcript
+        detectLanguageFromText(transcript);
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
+        setIsListening(false);
+        toast.error('Voice recognition failed. Please try again.');
+      };
+    }
+  }, []);
+
   const detectLocation = async () => {
     try {
       const response = await fetch("https://ipapi.co/json/");
@@ -99,6 +134,89 @@ const Chat = () => {
     navigate("/");
   };
 
+  const detectLanguageFromText = (text: string) => {
+    // Simple language detection based on common words and characters
+    const hindiChars = /[\u0900-\u097F]/;
+    const bengaliChars = /[\u0980-\u09FF]/;
+    const teluguChars = /[\u0C00-\u0C7F]/;
+    const tamilChars = /[\u0B80-\u0BFF]/;
+    const kannadaChars = /[\u0C80-\u0CFF]/;
+    const malayalamChars = /[\u0D00-\u0D7F]/;
+    const gujaratiChars = /[\u0A80-\u0AFF]/;
+    const punjabiChars = /[\u0A00-\u0A7F]/;
+    const marathiChars = /[\u0900-\u097F]/; // Same as Hindi
+
+    if (hindiChars.test(text) || text.toLowerCase().includes('kya') || text.toLowerCase().includes('hai')) {
+      setDetectedLanguage('hi');
+    } else if (bengaliChars.test(text)) {
+      setDetectedLanguage('bn');
+    } else if (teluguChars.test(text)) {
+      setDetectedLanguage('te');
+    } else if (tamilChars.test(text)) {
+      setDetectedLanguage('ta');
+    } else if (kannadaChars.test(text)) {
+      setDetectedLanguage('kn');
+    } else if (malayalamChars.test(text)) {
+      setDetectedLanguage('ml');
+    } else if (gujaratiChars.test(text)) {
+      setDetectedLanguage('gu');
+    } else if (punjabiChars.test(text)) {
+      setDetectedLanguage('pa');
+    } else if (marathiChars.test(text)) {
+      setDetectedLanguage('mr');
+    } else {
+      setDetectedLanguage('en');
+    }
+  };
+
+  const startListening = async () => {
+    if (!recognitionRef.current) {
+      toast.error('Speech recognition is not supported in this browser.');
+      return;
+    }
+
+    try {
+      // Request microphone permission
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      recognitionRef.current.start();
+    } catch (error) {
+      console.error('Microphone permission denied:', error);
+      toast.error('Microphone access is required for voice input.');
+    }
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current && isListening) {
+      recognitionRef.current.stop();
+    }
+  };
+
+  const speakText = (text: string, lang: string = 'en') => {
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(text);
+
+      // Set language for speech synthesis
+      const languageMap: { [key: string]: string } = {
+        'en': 'en-US',
+        'hi': 'hi-IN',
+        'bn': 'bn-IN',
+        'te': 'te-IN',
+        'mr': 'mr-IN',
+        'ta': 'ta-IN',
+        'gu': 'gu-IN',
+        'kn': 'kn-IN',
+        'ml': 'ml-IN',
+        'pa': 'pa-IN'
+      };
+
+      utterance.lang = languageMap[lang] || 'en-US';
+      utterance.rate = 0.9;
+      utterance.pitch = 1;
+
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
 
@@ -112,7 +230,7 @@ const Chat = () => {
         body: {
           messages: [...messages, userMessage],
           location,
-          language,
+          language: detectedLanguage || language, // Use detected language from voice input
         },
       });
 
@@ -123,6 +241,9 @@ const Chat = () => {
         content: data.message,
       };
       setMessages((prev) => [...prev, assistantMessage]);
+
+      // Speak the assistant's response
+      speakText(data.message, detectedLanguage || language);
     } catch (error: any) {
       toast.error(error.message || "Failed to get response");
     } finally {
@@ -225,7 +346,19 @@ const Chat = () => {
                       : "bg-secondary text-secondary-foreground shadow-secondary/20"
                   }`}
                 >
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  <div className="flex items-start gap-2">
+                    <p className="text-sm whitespace-pre-wrap flex-1">{message.content}</p>
+                    {message.role === "assistant" && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 p-0 opacity-60 hover:opacity-100"
+                        onClick={() => speakText(message.content, detectedLanguage || language)}
+                      >
+                        <Volume2 className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
@@ -251,6 +384,14 @@ const Chat = () => {
                 className="flex-1"
               />
               <Button
+                onClick={isListening ? stopListening : startListening}
+                disabled={loading}
+                variant={isListening ? "destructive" : "outline"}
+                className={isListening ? "animate-pulse" : ""}
+              >
+                {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              </Button>
+              <Button
                 onClick={sendMessage}
                 disabled={loading || !input.trim()}
                 className="bg-primary hover:bg-primary/90"
@@ -258,6 +399,11 @@ const Chat = () => {
                 <Send className="h-4 w-4" />
               </Button>
             </div>
+            {detectedLanguage !== 'en' && (
+              <div className="text-xs text-muted-foreground mt-2">
+                Detected language: {INDIAN_LANGUAGES.find(lang => lang.code === detectedLanguage)?.name || 'English'}
+              </div>
+            )}
           </div>
         </Card>
       </div>
