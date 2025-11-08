@@ -59,8 +59,10 @@ const Chat = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         navigate("/auth");
+        return;
       }
     };
+
     checkAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -230,7 +232,7 @@ const Chat = () => {
         body: {
           messages: [...messages, userMessage],
           location,
-          language: detectedLanguage || language, // Use detected language from voice input
+          language: language, // Use selected language, detectedLanguage is for display only
         },
       });
 
@@ -243,7 +245,7 @@ const Chat = () => {
       setMessages((prev) => [...prev, assistantMessage]);
 
       // Speak the assistant's response
-      speakText(data.message, detectedLanguage || language);
+      speakText(data.message, language);
     } catch (error: any) {
       toast.error(error.message || "Failed to get response");
     } finally {
@@ -353,7 +355,7 @@ const Chat = () => {
                         size="sm"
                         variant="ghost"
                         className="h-6 w-6 p-0 opacity-60 hover:opacity-100"
-                        onClick={() => speakText(message.content, detectedLanguage || language)}
+                        onClick={() => speakText(message.content, language)}
                       >
                         <Volume2 className="h-3 w-3" />
                       </Button>

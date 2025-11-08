@@ -18,13 +18,13 @@ const Auth = () => {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
-        navigate("/chat");
+        navigate("/dashboard");
       }
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        navigate("/chat");
+        navigate("/dashboard");
       }
     });
 
@@ -48,7 +48,7 @@ const Auth = () => {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/chat`,
+            emailRedirectTo: `${window.location.origin}/dashboard`,
           },
         });
         if (error) throw error;
