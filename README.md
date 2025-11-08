@@ -115,9 +115,12 @@ This level of localized intelligence — merging real‑time civic data, regiona
 ---
 
 ## 👥 Contributors
-CivicSphere-AI is built by a passionate trio committed to building inclusive, intelligent, and human-centered technology for local communities.
+CivicSphere-AI is built by a passionate trio committed to building inclusive,
+intelligent, and human-centered technology for local communities.
+
 Debaditya05-gif
 Dipankar8088
+
 Together, we designed CivicSphere-AI with one mission: to make civic intelligence truly local, accessible, and human-first — powered by open-source innovation.
 ---
 
