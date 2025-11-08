@@ -72,7 +72,7 @@ async function getCurrentWeather(location: string) {
 
 async function getLocationNews(location: string) {
   try {
-    const NEWS_API_KEY = Deno.env.get("pub_fddc0e1f62914722a90fde119d68e05c");
+    const NEWS_API_KEY = Deno.env.get("pub_e65fd689e33a4a0f8eefbf682a4a3388");
     
     if (!NEWS_API_KEY) {
       console.error("NEWSDATA_API_KEY not configured");
